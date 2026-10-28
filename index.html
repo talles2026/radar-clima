@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Radar do Clima</title>
 <meta name="description" content="Previsão do tempo por CEP ou cidade, juntando vários modelos meteorológicos, com alertas oficiais e avisos no celular.">
-<meta name="theme-color" content="#0F4C75">
+<meta name="theme-color" content="#0D151B">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -198,7 +198,7 @@ footer a{color:inherit}
 </main>
 <footer>
   Radar do Clima · Talles Eugenio · dados de vários centros meteorológicos e alertas oficiais do INMET<br>
-  <a href="#" id="lnkFontes">Fontes e saúde do sistema</a> · <a href="#" id="lnkTema">Tema</a> · versão 6
+  <a href="#" id="lnkFontes">Fontes e saúde do sistema</a> · <a href="#" id="lnkTema">Tema claro/escuro</a> · versão 7
 </footer>
 </div>
 
@@ -574,7 +574,7 @@ addEventListener("beforeinstallprompt", e => { e.preventDefault(); instalarEvt =
 async function instalar(){ if (!instalarEvt) return; instalarEvt.prompt(); await instalarEvt.userChoice; instalarEvt = null; $("btnInstalar").hidden = true; }
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").then(r => r.update()).catch(() => {});
 // atualização automática: se saiu versão nova do app, recarrega sozinho (uma vez)
-const APP_VERSAO = "6";
+const APP_VERSAO = "7";
 async function conferirVersao(){
   try {
     const v = (await (await fetch("versao.json?t=" + Date.now(), { cache:"no-store" })).json()).v;
