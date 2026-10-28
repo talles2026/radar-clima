@@ -198,7 +198,7 @@ footer a{color:inherit}
 </main>
 <footer>
   Radar do Clima · Talles Eugenio · dados de vários centros meteorológicos e alertas oficiais do INMET<br>
-  <a href="#" id="lnkFontes">Fontes e saúde do sistema</a> · <a href="#" id="lnkTema">Tema</a> · versão 4
+  <a href="#" id="lnkFontes">Fontes e saúde do sistema</a> · <a href="#" id="lnkTema">Tema</a> · versão 5
 </footer>
 </div>
 
@@ -324,7 +324,7 @@ function render(){
       <div class="mm">Máx <b>${r0(h0.tmax)}°</b> · Mín <b>${r0(h0.tmin)}°</b>${a.sens != null ? ` · Sensação ${r0(a.sens)}°` : ""}</div>
     </div>${icone(a.icone || h0.icone)}</div>
     <div class="stats">
-      <div><b>${r0(h0.prob)}%</b><span>chuva hoje</span></div>
+      <div><b>${fmtMm(h0.chuva)}</b><span>chuva (${r0(h0.prob)}%)</span></div>
       <div><b>${a.ur != null ? r0(a.ur) + "%" : "–"}</b><span>umidade</span></div>
       <div><b>${r0(a.vento)}</b><span>vento km/h</span></div>
       <div><b>${h0.uv != null ? r0(h0.uv) : "–"}</b><span>índice UV</span></div>
@@ -574,7 +574,7 @@ addEventListener("beforeinstallprompt", e => { e.preventDefault(); instalarEvt =
 async function instalar(){ if (!instalarEvt) return; instalarEvt.prompt(); await instalarEvt.userChoice; instalarEvt = null; $("btnInstalar").hidden = true; }
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").then(r => r.update()).catch(() => {});
 // atualização automática: se saiu versão nova do app, recarrega sozinho (uma vez)
-const APP_VERSAO = "4";
+const APP_VERSAO = "5";
 async function conferirVersao(){
   try {
     const v = (await (await fetch("versao.json?t=" + Date.now(), { cache:"no-store" })).json()).v;
