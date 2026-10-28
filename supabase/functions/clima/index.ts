@@ -14,7 +14,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-cron",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
-const VERSAO = "2026.10.28-1";
+const VERSAO = "2026.10.28-2";
 const CACHE_MIN = 20;
 
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
@@ -350,6 +350,7 @@ function icone(prob: number, mm: number, nuvem: number, trov: number) {
   return "sol";
 }
 const DESC: Record<string, string> = { tempestade: "Pancadas fortes com trovoadas", chuva: "Chuva", pancadas: "Sol, nuvens e pancadas de chuva", nublado: "Nublado", "sol-nuvem": "Sol entre nuvens", sol: "Ensolarado" };
+const REGISTRA = new Set(["temperature_2m_max", "temperature_2m_min", "precipitation_sum"]);
 const DSEM = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 const dsem = (d: string) => DSEM[new Date(d + "T12:00:00Z").getUTCDay()];
 
@@ -419,7 +420,7 @@ async function previsao(lat: number, lon: number, nome: string, uf: string) {
     const i = dIdx[d];
     const mod: J = {};
     const val = (v: string, pv: string, extra: { v: number; w: number }[] = []) => combinar([
-      ...modelos.map(m => { const x = i != null ? om.dm[m]?.[v]?.[i] : null; if (x != null) { (mod[m] ||= {})[pv] = r1(x); } return { v: x, w: peso(P, pv, m) }; }),
+      ...modelos.map(m => { const x = i != null ? om.dm[m]?.[v]?.[i] : null; if (x != null && REGISTRA.has(v)) { (mod[m] ||= {})[pv] = r1(x); } return { v: x, w: peso(P, pv, m) }; }),
       ...extra,
     ]);
     const extraMax: { v: number; w: number }[] = [], extraMin: { v: number; w: number }[] = [], extraChuva: { v: number; w: number }[] = [];
@@ -535,7 +536,7 @@ async function previsao(lat: number, lon: number, nome: string, uf: string) {
   }
   const campo = {
     pulverizacao: janelas.filter(j => j.horas >= 2).slice(0, 6).map(j => ({ inicio: j.inicio, fim: j.fim, horas: j.horas })),
-    secagem: dias.map(d => ({ data: d.data, nota: d.prob < 25 && d.nuvem < 55 && (d.urMin ?? 100) < 60 ? "boa" : d.prob < 45 && d.nuvem < 75 ? "regular" : "ruim" })),
+    secagem: dias.map(d => ({ data: d.data, nota: d.prob < 25 && d.nuvem < 70 && (d.urMin ?? 100) < 60 ? "boa" : d.prob < 45 && (d.urMin ?? 100) < 75 ? "regular" : "ruim" })),
     chuvaSemana: r0(dias.reduce((s, d) => s + (d.chuva ?? 0) * Math.min(1, (d.prob ?? 0) / 60), 0)),
     geada: dias.filter(d => (d.tmin ?? 99) <= 4).map(d => ({ data: d.data, tmin: d.tmin })),
   };

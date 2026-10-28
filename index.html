@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Radar do Clima</title>
+<meta name="description" content="Previsão do tempo por CEP ou cidade, juntando vários modelos meteorológicos, com alertas oficiais e avisos no celular.">
+<meta name="theme-color" content="#0F4C75">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta property="og:title" content="Radar do Clima">
+<meta property="og:description" content="Previsão do tempo para hoje e a semana, por CEP ou cidade.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#EEF3F6; --surface:#FFFFFF; --ink:#13202A; --muted:#5A6B77; --line:#D7E1E8;
+  --accent:#0F4C75; --accent-ink:#FFFFFF; --sky:#3282B8; --rain:#2E7DD7; --rain-soft:#D6E8FB;
+  --sun:#E8A317; --hot:#D9532B; --cold:#2F7FB8; --ok:#2E8B57; --warn:#C98A0B; --bad:#C23B22; --grave:#7A1B5C;
+  --hero1:#0F4C75; --hero2:#3282B8; --hero-ink:#FFFFFF;
+  --display:"Bricolage Grotesque",system-ui,sans-serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+  --r:16px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0D151B; --surface:#152029; --ink:#E4ECF1; --muted:#93A5B2; --line:#243541;
+  --accent:#5DA9E9; --accent-ink:#0D151B; --rain:#6CB0F5; --rain-soft:#1B3550; --hero1:#0E2F47; --hero2:#1D5A85;
+}}
+:root[data-theme="dark"]{
+  --bg:#0D151B; --surface:#152029; --ink:#E4ECF1; --muted:#93A5B2; --line:#243541;
+  --accent:#5DA9E9; --accent-ink:#0D151B; --rain:#6CB0F5; --rain-soft:#1B3550; --hero1:#0E2F47; --hero2:#1D5A85;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;padding-bottom:env(safe-area-inset-bottom,0px)}
+.wrap{max-width:640px;margin:0 auto;padding:0 16px}
+button{font:inherit;color:inherit;cursor:pointer}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+header.top{position:sticky;top:0;z-index:20;background:var(--bg);padding-top:env(safe-area-inset-top,0px);border-bottom:1px solid var(--line)}
+header .bar{display:flex;align-items:center;gap:10px;padding:10px 0}
+.brand{font-family:var(--display);font-weight:700;font-size:1.05rem;letter-spacing:-.01em;white-space:nowrap}
+.place{flex:1;min-width:0;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:8px 14px;text-align:left}
+.place b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.place svg{flex:none;color:var(--muted)}
+.iconbtn{flex:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center}
+main{padding:14px 0 40px;display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+h2{font-family:var(--display);font-weight:700;font-size:1.05rem;margin:0 0 10px;letter-spacing:-.01em}
+.eyebrow{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.muted{color:var(--muted)}
+.small{font-size:.82rem}
+
+/* destaque */
+.hero{background:linear-gradient(160deg,var(--hero1),var(--hero2));color:var(--hero-ink);border-radius:20px;padding:18px 18px 16px;position:relative;overflow:hidden}
+.hero .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.hero .temp{font-family:var(--display);font-weight:700;font-size:clamp(3.6rem,19vw,5rem);line-height:.95;letter-spacing:-.03em}
+.hero .temp sup{font-size:.45em;vertical-align:.9em;font-weight:500}
+.hero .wi{width:92px;height:92px;flex:none}
+.hero .desc{font-size:1.05rem;font-weight:500;margin-top:4px}
+.hero .mm{opacity:.9;margin-top:2px}
+.hero .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:14px;border-top:1px solid rgba(255,255,255,.2);padding-top:12px}
+.hero .stats div{text-align:center}
+.hero .stats b{display:block;font-family:var(--mono);font-weight:500;font-size:.95rem}
+.hero .stats span{font-size:.7rem;opacity:.8}
+.hero .when{font-size:.75rem;opacity:.8;margin-top:10px;display:flex;justify-content:space-between;gap:8px}
+
+/* alertas */
+.alertas{display:grid;gap:8px}
+.alerta{border-radius:14px;padding:12px 14px;border:1px solid;display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}
+.alerta .ico{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:.9rem;color:#fff}
+.alerta b{display:block}
+.alerta p{margin:2px 0 0;font-size:.86rem}
+.alerta .src{font-size:.7rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:.8}
+.alerta.info{background:color-mix(in srgb,var(--rain) 9%,var(--surface));border-color:color-mix(in srgb,var(--rain) 35%,var(--line))}
+.alerta.info .ico{background:var(--rain)}
+.alerta.atencao{background:color-mix(in srgb,var(--warn) 11%,var(--surface));border-color:color-mix(in srgb,var(--warn) 45%,var(--line))}
+.alerta.atencao .ico{background:var(--warn)}
+.alerta.perigo{background:color-mix(in srgb,var(--bad) 11%,var(--surface));border-color:color-mix(in srgb,var(--bad) 45%,var(--line))}
+.alerta.perigo .ico{background:var(--bad)}
+.alerta.grave{background:color-mix(in srgb,var(--grave) 14%,var(--surface));border-color:var(--grave)}
+.alerta.grave .ico{background:var(--grave)}
+.alerta details{margin-top:6px;font-size:.82rem}
+.alerta summary{cursor:pointer;color:var(--muted)}
+.alerta ul{margin:6px 0 0;padding-left:18px}
+
+.resumo p{margin:0 0 6px}
+.resumo p:last-child{margin:0}
+
+/* horas */
+.horas{display:flex;gap:4px;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:6px;margin:0 -6px;-webkit-overflow-scrolling:touch}
+.horas::-webkit-scrollbar{height:4px}.horas::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+.hora{flex:none;width:54px;text-align:center;scroll-snap-align:start;padding:6px 0;border-radius:12px}
+.hora.agora{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.hora .h{font-size:.75rem;color:var(--muted)}
+.hora .t{font-family:var(--mono);font-weight:500;margin-top:2px}
+.hora svg{width:30px;height:30px;margin:4px auto 0;display:block}
+.hora .p{font-size:.7rem;color:var(--rain);font-weight:600;height:1.1em}
+.hora .barra{height:34px;display:flex;align-items:flex-end;justify-content:center;margin-top:4px}
+.hora .barra i{display:block;width:14px;border-radius:4px 4px 2px 2px;background:var(--rain);opacity:.85}
+.hora .mmh{font-size:.65rem;color:var(--muted);font-family:var(--mono);height:1.1em}
+.dia-sep{flex:none;width:1px;background:var(--line);margin:6px 2px}
+
+/* dias */
+.dias{display:grid}
+.dia{border-top:1px solid var(--line)}
+.dia:first-child{border-top:0}
+.dia>button{width:100%;background:none;border:0;padding:10px 0;display:grid;grid-template-columns:76px 34px 46px 1fr;align-items:center;gap:8px;text-align:left}
+.dia .nome b{display:block;font-weight:600;text-transform:capitalize}
+.dia .nome span{font-size:.72rem;color:var(--muted)}
+.dia svg.wi{width:34px;height:34px}
+.dia .prob{font-size:.8rem;color:var(--rain);font-weight:600;text-align:center;line-height:1.1}
+.dia .prob small{display:block;font-weight:400;color:var(--muted);font-size:.68rem;font-family:var(--mono)}
+.faixa{display:grid;grid-template-columns:32px 1fr 32px;align-items:center;gap:6px;font-family:var(--mono);font-size:.9rem}
+.faixa .mn{color:var(--muted);text-align:right}
+.faixa .trilho{position:relative;height:6px;border-radius:6px;background:var(--line)}
+.faixa .trilho i{position:absolute;top:0;bottom:0;border-radius:6px;background:linear-gradient(90deg,var(--cold),var(--sun),var(--hot))}
+.det{display:none;padding:0 0 14px}
+.dia.aberto .det{display:block}
+.det .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:4px 0 10px}
+.det .grid div{background:var(--bg);border-radius:10px;padding:8px}
+.det .grid b{display:block;font-family:var(--mono);font-weight:500}
+.det .grid span{font-size:.7rem;color:var(--muted)}
+.per{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.per div{text-align:center;font-size:.72rem;color:var(--muted)}
+.per b{display:block;font-size:.9rem;color:var(--rain);font-family:var(--mono)}
+.conf{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;padding:3px 10px;border-radius:999px;background:var(--bg)}
+.conf i{width:8px;height:8px;border-radius:50%}
+.modelos{width:100%;border-collapse:collapse;font-size:.8rem;margin-top:8px}
+.modelos th,.modelos td{padding:5px 4px;border-bottom:1px solid var(--line);text-align:right}
+.modelos th:first-child,.modelos td:first-child{text-align:left}
+.modelos th{font-weight:600;color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.05em}
+.modelos tr.media td{font-weight:600;border-bottom:0}
+.mini{width:100%;height:110px;display:block;margin-top:6px}
+
+/* campo */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:.8rem;padding:5px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--line)}
+.chip.boa{background:color-mix(in srgb,var(--ok) 14%,var(--surface));border-color:color-mix(in srgb,var(--ok) 40%,var(--line))}
+.chip.regular{background:color-mix(in srgb,var(--warn) 12%,var(--surface));border-color:color-mix(in srgb,var(--warn) 35%,var(--line))}
+.chip.ruim{background:color-mix(in srgb,var(--bad) 10%,var(--surface));border-color:color-mix(in srgb,var(--bad) 30%,var(--line))}
+.campo-item{padding:10px 0;border-top:1px solid var(--line)}
+.campo-item:first-of-type{border-top:0;padding-top:0}
+.campo-item h3{font-size:.9rem;margin:0 0 6px;font-weight:600}
+
+/* avisos e fontes */
+.btn{border:0;border-radius:12px;padding:11px 16px;font-weight:600;background:var(--accent);color:var(--accent-ink)}
+.btn.sec{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.prefs{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:10px 0}
+.prefs label{display:flex;gap:8px;align-items:center;font-size:.86rem}
+.prefs input{width:18px;height:18px;accent-color:var(--accent)}
+.fontes li{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:.86rem}
+.fontes{list-style:none;margin:0;padding:0}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.dot.ok{background:var(--ok)}.dot.falha{background:var(--bad)}.dot.aten{background:var(--warn)}
+
+/* busca */
+dialog{border:0;padding:0;width:100%;max-width:640px;margin:0 auto;background:var(--bg);color:var(--ink);border-radius:0 0 20px 20px;position:fixed;top:0;max-height:92vh;overflow:auto}
+dialog::backdrop{background:rgba(5,15,25,.45)}
+.busca{padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 16px}
+.busca form{display:flex;gap:8px}
+.busca input{flex:1;min-width:0;font:inherit;font-size:16px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.lista{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:6px}
+.lista button{width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+.lista small{color:var(--muted);display:block}
+.lista .x{border:0;background:none;width:auto;padding:4px 8px;color:var(--muted)}
+.gps{width:100%;margin-top:10px}
+.vazio{text-align:center;padding:30px 10px}
+.vazio h1{font-family:var(--display);font-size:1.6rem;margin:10px 0 6px}
+.skel{height:180px;border-radius:20px;background:linear-gradient(90deg,var(--surface),var(--line),var(--surface));background-size:200% 100%;animation:sk 1.2s infinite}
+@keyframes sk{to{background-position:-200% 0}}
+.erro{border-color:var(--bad)}
+footer{font-size:.75rem;color:var(--muted);text-align:center;padding:10px 0 30px}
+footer a{color:inherit}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:.88rem;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+.toast.on{opacity:1}
+@media (min-width:560px){.det .grid{grid-template-columns:repeat(6,1fr)}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar">
+  <div class="brand" aria-label="Radar do Clima">☁︎ Radar</div>
+  <button class="place" id="btnLocal" aria-label="Trocar local">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>
+    <b id="nomeLocal">Escolher local</b>
+  </button>
+  <button class="iconbtn" id="btnAtualizar" aria-label="Atualizar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg></button>
+</div></header>
+
+<div class="wrap"><main id="app">
+  <div class="skel"></div>
+</main>
+<footer>
+  Radar do Clima · Talles Eugenio · dados de vários centros meteorológicos e alertas oficiais do INMET<br>
+  <a href="#" id="lnkFontes">Fontes e saúde do sistema</a> · <a href="#" id="lnkTema">Tema</a>
+</footer>
+</div>
+
+<dialog id="dlgBusca"><div class="busca">
+  <form id="frmBusca" autocomplete="off">
+    <input id="q" type="search" inputmode="search" placeholder="CEP ou cidade (ex.: 39100-000, Diamantina MG)" aria-label="CEP ou cidade">
+    <button class="btn" type="submit">Buscar</button>
+  </form>
+  <button class="btn sec gps" id="btnGps" type="button">📍 Usar minha localização</button>
+  <ul class="lista" id="resultados"></ul>
+  <div id="favBox"><p class="eyebrow" style="margin:16px 0 6px">Meus locais</p><ul class="lista" id="favoritos"></ul></div>
+  <div style="text-align:right;margin-top:12px"><button class="btn sec" id="fecharBusca" type="button">Fechar</button></div>
+</div></dialog>
+
+<dialog id="dlgFontes"><div class="busca" id="fontesConteudo"></div></dialog>
+<div class="toast" id="toast"></div>
+
+<script>
+const CONFIG = {
+  fn: "https://xgwdrrxbqopsfhjgkvdq.supabase.co/functions/v1/clima",
+  rest: "https://xgwdrrxbqopsfhjgkvdq.supabase.co/rest/v1/rpc/",
+  anon: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhnd2RycnhicW9wc2ZoamdrdmRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxNzI0NzYsImV4cCI6MjEwODc0ODQ3Nn0.OMQnvzjJutLjlbGWq6rG7OeIK31ty-gHizNTe6rfWQI",
+  vapid: "BFTclvnkE-ZTpvhl9-0SZFruOKbH8r6DvXHgNTbsqglo0coom_VvLiPFAj8ZINlZXRqClA5-VNKZsnUJF2hC168",
+};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const r0 = v => v == null ? "–" : Math.round(v);
+const store = {
+  get(k, d){ try { const v = localStorage.getItem("rc:" + k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem("rc:" + k, JSON.stringify(v)); } catch(e){} },
+};
+function toast(t){ const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 2800); }
+
+// ---------- ícones
+const WI = {
+  sol: `<circle cx="32" cy="32" r="11" fill="#F5B82E"/><g stroke="#F5B82E" stroke-width="3.5" stroke-linecap="round"><path d="M32 10v6M32 48v6M10 32h6M48 32h6M16.4 16.4l4.2 4.2M43.4 43.4l4.2 4.2M16.4 47.6l4.2-4.2M43.4 20.6l4.2-4.2"/></g>`,
+  noite: `<path d="M40 14a18 18 0 1 0 10 30A16 16 0 0 1 40 14z" fill="#C9D6E3"/>`,
+  nuvem: `<path d="M20 48h26a10 10 0 0 0 1-20 14 14 0 0 0-27 3 8.5 8.5 0 0 0 0 17z" fill="#D8E2EA" stroke="#9FB2C2" stroke-width="2"/>`,
+  nuvemEsc: `<path d="M20 44h26a10 10 0 0 0 1-20 14 14 0 0 0-27 3 8.5 8.5 0 0 0 0 17z" fill="#AFC0CE" stroke="#7F95A8" stroke-width="2"/>`,
+};
+function icone(nome){
+  const solp = `<g transform="translate(-8,-8) scale(.8)">${WI.sol}</g>`;
+  const luap = `<g transform="translate(-6,-8) scale(.8)">${WI.noite}</g>`;
+  const gotas = n => Array.from({length:n},(_,i)=>`<path d="M${22+i*9} ${50+(i%2)*3}l-3 7" stroke="#2E7DD7" stroke-width="3" stroke-linecap="round"/>`).join("");
+  const svg = {
+    "sol": WI.sol, "noite": WI.noite,
+    "sol-nuvem": solp + WI.nuvem, "noite-nuvem": luap + WI.nuvem,
+    "nublado": `<g transform="translate(6,-6) scale(.8)">${WI.nuvemEsc}</g>` + WI.nuvem,
+    "pancadas": solp + `<g transform="translate(0,-4)">${WI.nuvem}</g>` + gotas(2),
+    "chuva": WI.nuvemEsc.replace('h26','h26') + gotas(4),
+    "tempestade": WI.nuvemEsc + `<path d="M33 44l-6 10h7l-4 9 10-13h-7l4-6z" fill="#F5B82E"/>` + gotas(1),
+  }[nome] || WI.nuvem;
+  return `<svg class="wi" viewBox="0 0 64 64" aria-hidden="true">${svg}</svg>`;
+}
+
+// ---------- estado
+let atual = null, dados = null;
+const SEM = ["dom","seg","ter","qua","qui","sex","sáb"];
+const dataCurta = iso => { const [y,m,d] = iso.split("-"); return `${d}/${m}`; };
+
+// ---------- chamadas
+async function chamar(params, ms = 25000){
+  const u = CONFIG.fn + "?" + new URLSearchParams(params);
+  const r = await fetch(u, { signal: AbortSignal.timeout(ms) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.erro) throw new Error(j.erro || ("HTTP " + r.status));
+  return j;
+}
+
+// Modo reserva: se nosso servidor falhar, busca direto num serviço público e monta o básico.
+async function reserva(l){
+  const u = `https://api.open-meteo.com/v1/forecast?latitude=${l.lat}&longitude=${l.lon}&timezone=auto&forecast_days=7` +
+    `&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_gusts_10m,is_day` +
+    `&hourly=temperature_2m,precipitation_probability,precipitation,cloud_cover,weather_code,is_day` +
+    `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,wind_gusts_10m_max,uv_index_max,sunrise,sunset`;
+  const j = await (await fetch(u)).json();
+  const ic = (prob, mm, nuv, code) => code >= 95 && prob >= 45 ? "tempestade" : prob >= 60 && mm >= 5 ? "chuva" : prob >= 40 && mm >= 1 ? "pancadas" : nuv >= 80 ? "nublado" : nuv >= 40 ? "sol-nuvem" : "sol";
+  const agoraIso = j.current.time.slice(0,13);
+  const i0 = Math.max(0, j.hourly.time.findIndex(t => t.slice(0,13) === agoraIso));
+  const horas = j.hourly.time.slice(i0, i0+48).map((t,k) => { const i = i0+k; const x = ic(j.hourly.precipitation_probability[i], j.hourly.precipitation[i]*6, j.hourly.cloud_cover[i], j.hourly.weather_code[i]);
+    return { t, temp: j.hourly.temperature_2m[i], prob: j.hourly.precipitation_probability[i], chuva: j.hourly.precipitation[i], dia: j.hourly.is_day[i], icone: x === "sol" && !j.hourly.is_day[i] ? "noite" : x }; });
+  const D = j.daily;
+  const dias = D.time.map((d,i) => { const x = ic(D.precipitation_probability_max[i], D.precipitation_sum[i], 50, D.weather_code[i]);
+    return { data:d, semana:["domingo","segunda","terça","quarta","quinta","sexta","sábado"][new Date(d+"T12:00:00Z").getUTCDay()], icone:x, desc:{tempestade:"Pancadas fortes com trovoadas",chuva:"Chuva",pancadas:"Sol, nuvens e pancadas de chuva",nublado:"Nublado","sol-nuvem":"Sol entre nuvens",sol:"Ensolarado"}[x],
+      tmax:D.temperature_2m_max[i], tmin:D.temperature_2m_min[i], chuva:D.precipitation_sum[i], prob:D.precipitation_probability_max[i], rajada:D.wind_gusts_10m_max[i], uv:D.uv_index_max[i], nascer:D.sunrise[i].slice(11), por:D.sunset[i].slice(11), confianca:"média", modelos:{} }; });
+  const c = j.current;
+  return { reserva:true, gerado:new Date().toISOString(), local:l, agora:{ temp:c.temperature_2m, sens:c.apparent_temperature, ur:c.relative_humidity_2m, vento:c.wind_speed_10m, rajada:c.wind_gusts_10m, chuva:c.precipitation, dia:c.is_day,
+    icone: c.precipitation >= .2 ? "chuva" : (c.cloud_cover >= 80 ? "nublado" : c.cloud_cover >= 40 ? (c.is_day ? "sol-nuvem" : "noite-nuvem") : (c.is_day ? "sol" : "noite")) },
+    resumo:[], alertas:[], dias, horas, semanaHoras: j.hourly.time.map((t,i)=>[t.slice(5,13), j.hourly.temperature_2m[i], j.hourly.precipitation_probability[i], j.hourly.precipitation[i]]), campo:null, fontes:{ usadas:["Open-Meteo (modo reserva)"], ensemble:[] } };
+}
+
+async function carregar(l, forcar){
+  atual = l; store.set("ultimo", l);
+  $("nomeLocal").textContent = l.nome + (l.uf ? " – " + l.uf : "");
+  const k = "prev:" + l.lat.toFixed(2) + "," + l.lon.toFixed(2);
+  const salvo = store.get(k);
+  if (salvo && !forcar) { dados = salvo; render(); } else if (!dados) $("app").innerHTML = `<div class="skel"></div><div class="skel" style="height:120px"></div>`;
+  try {
+    const params = { acao:"previsao", lat:l.lat, lon:l.lon, nome:l.nome||"", uf:l.uf||"" };
+    if (forcar) params.t = Date.now();
+    dados = await chamar(params);
+  } catch (e) {
+    try { dados = await reserva(l); toast("Servidor principal fora do ar: usando fonte reserva."); }
+    catch (e2) { if (!salvo) { $("app").innerHTML = `<div class="card erro"><h2>Sem conexão</h2><p>Não deu para buscar a previsão agora. Confira a internet e toque em atualizar.</p></div>`; } else toast("Sem internet: mostrando a última previsão salva."); return; }
+  }
+  store.set(k, dados);
+  history.replaceState(null, "", `?lat=${l.lat}&lon=${l.lon}&n=${encodeURIComponent(l.nome||"")}&uf=${l.uf||""}`);
+  render();
+}
+
+// ---------- tela
+function nivelIco(n){ return n === "info" ? "i" : "!"; }
+function render(){
+  const d = dados; if (!d) return;
+  const a = d.agora || {}, h0 = d.dias?.[0] || {};
+  const idade = Math.round((Date.now() - Date.parse(d.gerado)) / 60000);
+  let html = "";
+  html += `<section class="hero">
+    <div class="row"><div>
+      <div class="temp num">${r0(a.temp)}<sup>°C</sup></div>
+      <div class="desc">${esc(h0.desc || "")}</div>
+      <div class="mm">Máx <b>${r0(h0.tmax)}°</b> · Mín <b>${r0(h0.tmin)}°</b>${a.sens != null ? ` · Sensação ${r0(a.sens)}°` : ""}</div>
+    </div>${icone(a.icone || h0.icone)}</div>
+    <div class="stats">
+      <div><b>${r0(h0.prob)}%</b><span>chuva hoje</span></div>
+      <div><b>${a.ur != null ? r0(a.ur) + "%" : "–"}</b><span>umidade</span></div>
+      <div><b>${r0(a.vento)}</b><span>vento km/h</span></div>
+      <div><b>${h0.uv != null ? r0(h0.uv) : "–"}</b><span>índice UV</span></div>
+    </div>
+    <div class="when"><span>${d.reserva ? "Modo reserva" : "Atualizado " + (idade < 2 ? "agora" : `há ${idade} min`)}</span><span>${h0.nascer ? `☀ ${h0.nascer} · ☾ ${h0.por}` : ""}</span></div>
+  </section>`;
+
+  if (d.alertas?.length) html += `<section class="alertas">${d.alertas.map(x => `
+    <div class="alerta ${x.nivel}"><div class="ico">${nivelIco(x.nivel)}</div><div>
+      <span class="src">${x.oficial ? "INMET · alerta oficial" : "Radar · previsão"}</span>
+      <b>${esc(x.titulo)}</b><p>${esc(x.texto)}</p>
+      ${x.oficial ? `<p class="small muted">${esc((x.inicio||"").slice(0,16))} até ${esc((x.fim||"").slice(0,16))}</p>${x.instrucoes?.length ? `<details><summary>O que fazer</summary><ul>${x.instrucoes.map(i => `<li>${esc(i)}</li>`).join("")}</ul></details>` : ""}` : ""}
+    </div></div>`).join("")}</section>`;
+
+  if (d.resumo?.length) html += `<section class="card resumo"><h2>Resumo</h2>${d.resumo.map(p => `<p>${esc(p)}</p>`).join("")}</section>`;
+
+  // horas
+  if (d.horas?.length){
+    let ult = d.horas[0].t.slice(0,10), hs = "";
+    d.horas.slice(0, 36).forEach((x, i) => {
+      if (x.t.slice(0,10) !== ult) { ult = x.t.slice(0,10); hs += `<div class="dia-sep"></div>`; }
+      const hh = +x.t.slice(11,13);
+      const alt = Math.min(34, (x.chuva || 0) * 10);
+      hs += `<div class="hora ${i === 0 ? "agora" : ""}"><div class="h">${i === 0 ? "Agora" : hh + "h"}</div>${icone(x.icone)}<div class="t">${r0(x.temp)}°</div>
+        <div class="p">${x.prob >= 15 ? r0(x.prob) + "%" : ""}</div><div class="barra">${alt > 0.5 ? `<i style="height:${Math.max(3, alt)}px"></i>` : ""}</div><div class="mmh">${x.chuva >= .1 ? (x.chuva < 1 ? x.chuva.toFixed(1) : r0(x.chuva)) : ""}</div></div>`;
+    });
+    html += `<section class="card"><h2>Próximas horas</h2><div class="horas">${hs}</div><p class="small muted" style="margin:6px 0 0">% = chance de chuva · barras = milímetros por hora</p></section>`;
+  }
+
+  // dias
+  if (d.dias?.length){
+    const tmin = Math.min(...d.dias.map(x => x.tmin ?? 99)), tmax = Math.max(...d.dias.map(x => x.tmax ?? -99)), amp = Math.max(1, tmax - tmin);
+    html += `<section class="card"><h2>Hoje e próximos dias</h2><div class="dias">${d.dias.map((x, i) => {
+      const nome = i === 0 ? "Hoje" : i === 1 ? "Amanhã" : x.semana;
+      const esq = ((x.tmin - tmin) / amp) * 100, larg = Math.max(6, ((x.tmax - x.tmin) / amp) * 100);
+      return `<div class="dia" data-i="${i}"><button aria-expanded="false">
+        <div class="nome"><b>${nome}</b><span>${dataCurta(x.data)}</span></div>${icone(x.icone)}
+        <div class="prob">${x.prob >= 10 ? r0(x.prob) + "%" : ""}<small>${x.chuva >= 1 ? r0(x.chuva) + " mm" : ""}</small></div>
+        <div class="faixa"><span class="mn">${r0(x.tmin)}°</span><span class="trilho"><i style="left:${esq}%;width:${Math.min(larg, 100 - esq)}%"></i></span><span>${r0(x.tmax)}°</span></div>
+      </button><div class="det"></div></div>`; }).join("")}</div></section>`;
+  }
+
+  // campo
+  if (d.campo) {
+    const c = d.campo;
+    const fmtH = t => `${SEM[new Date(t.slice(0,10)+"T12:00:00Z").getUTCDay()]} ${+t.slice(11,13)}h`;
+    html += `<section class="card"><h2>No campo</h2>
+      <div class="campo-item"><h3>Janelas para pulverizar (próximas 48 h)</h3>${c.pulverizacao.length ? `<div class="chips">${c.pulverizacao.map(j => `<span class="chip boa">${fmtH(j.inicio)} – ${+j.fim.slice(11,13) + 1}h</span>`).join("")}</div><p class="small muted" style="margin:6px 0 0">Vento entre 2 e 12 km/h, até 30 °C, umidade acima de 50% e sem chuva nas 3 horas seguintes.</p>` : `<p class="small muted" style="margin:0">Nenhuma janela boa nas próximas 48 horas (vento, calor, ar seco ou chuva).</p>`}</div>
+      <div class="campo-item"><h3>Secagem no terreiro</h3><div class="chips">${c.secagem.map((s, i) => `<span class="chip ${s.nota}">${i === 0 ? "hoje" : SEM[new Date(s.data+"T12:00:00Z").getUTCDay()]}: ${s.nota}</span>`).join("")}</div></div>
+      <div class="campo-item"><h3>Chuva esperada na semana</h3><p style="margin:0"><b class="num">${r0(c.chuvaSemana)} mm</b> <span class="small muted">(soma ponderada pela chance de cada dia)</span></p></div>
+      ${c.geada.length ? `<div class="campo-item"><h3>Frio forte / geada</h3><div class="chips">${c.geada.map(g => `<span class="chip ruim">${dataCurta(g.data)}: ${r0(g.tmin)}°</span>`).join("")}</div></div>` : ""}
+    </section>`;
+  }
+
+  // avisos no celular
+  html += `<section class="card" id="cardAvisos"><h2>Avisos no celular</h2><div id="avisosCorpo"></div></section>`;
+
+  // fontes
+  const f = d.fontes || {};
+  html += `<section class="card"><h2>De onde vem esta previsão</h2>
+    <p class="small" style="margin:0 0 8px">Juntamos <b>${(f.usadas||[]).length} fontes</b> e damos mais peso às que acertam mais${f.pesosAprendidos ? " <b>nesta região</b>" : ""}. A chance de chuva vem de ${f.ensemble?.length ? f.ensemble.join(", ") : "modelos de previsão"}: são cenários diferentes rodados pelos centros meteorológicos, e a porcentagem é quantos deles mostram chuva.</p>
+    <div class="chips">${(f.usadas||[]).map(u => `<span class="chip">${esc(u)}</span>`).join("")}</div>
+    <div class="btns" style="margin-top:12px"><button class="btn sec" id="btnCompartilhar">Compartilhar</button><button class="btn sec" id="btnFav">${ehFav() ? "★ Nos meus locais" : "☆ Salvar local"}</button><button class="btn sec" id="btnInstalar" hidden>Instalar app</button></div>
+  </section>`;
+
+  $("app").innerHTML = html;
+  document.querySelectorAll(".dia>button").forEach(b => b.onclick = () => abrirDia(b.parentElement));
+  $("btnCompartilhar").onclick = compartilhar;
+  $("btnFav").onclick = alternarFav;
+  if (instalarEvt) { $("btnInstalar").hidden = false; $("btnInstalar").onclick = instalar; }
+  renderAvisos();
+}
+
+const NOMES = { ecmwf_ifs025:"ECMWF", ecmwf_aifs025_single:"ECMWF IA", icon_seamless:"ICON", ukmo_seamless:"UKMO", meteofrance_seamless:"Météo-France", gfs_seamless:"GFS", gem_seamless:"GEM", jma_seamless:"JMA", cma_grapes_global:"CMA", metno:"MET Norway", cptec:"CPTEC/INPE", best_match:"Open-Meteo" };
+function abrirDia(el){
+  const aberto = el.classList.toggle("aberto");
+  el.querySelector("button").setAttribute("aria-expanded", aberto);
+  if (!aberto) return;
+  const x = dados.dias[+el.dataset.i];
+  const corConf = { alta:"var(--ok)", "média":"var(--warn)", baixa:"var(--bad)" }[x.confianca] || "var(--muted)";
+  const mods = Object.entries(x.modelos || {});
+  const p = x.periodos || {};
+  // mini gráfico de temperatura e chuva do dia
+  const hs = (dados.semanaHoras || []).filter(h => h[0].startsWith(x.data.slice(5)));
+  let svg = "";
+  if (hs.length >= 12) {
+    const W = 320, H = 110, ts = hs.map(h => h[1]), mn = Math.min(...ts) - 1, mx = Math.max(...ts) + 1;
+    const X = i => 14 + i * ((W - 28) / (hs.length - 1)), Y = t => 14 + (1 - (t - mn) / (mx - mn)) * 58;
+    const barras = hs.map((h, i) => h[2] >= 10 ? `<rect x="${X(i)-3}" y="${108 - h[2]*0.2}" width="6" height="${h[2]*0.2}" rx="2" fill="var(--rain)" opacity=".55"/>` : "").join("");
+    const linha = hs.map((h, i) => `${i ? "L" : "M"}${X(i).toFixed(1)} ${Y(h[1]).toFixed(1)}`).join(" ");
+    const rot = hs.map((h, i) => i % 6 === 0 ? `<text x="${X(i)}" y="${Y(h[1]) - 6}" font-size="10" text-anchor="middle" fill="currentColor">${h[1]}°</text><text x="${X(i)}" y="84" font-size="9" text-anchor="middle" fill="var(--muted)">${+h[0].slice(6)}h</text>` : "").join("");
+    svg = `<svg class="mini" viewBox="0 0 ${W} ${H}" role="img" aria-label="Temperatura e chance de chuva por hora">${barras}<path d="${linha}" fill="none" stroke="var(--hot)" stroke-width="2"/>${rot}</svg><p class="small muted" style="margin:0">Linha: temperatura · barras: chance de chuva por hora</p>`;
+  }
+  el.querySelector(".det").innerHTML = `
+    <p style="margin:0 0 8px"><b>${esc(x.desc)}</b>${x.cptec ? ` <span class="small muted">· CPTEC/INPE: ${esc(x.cptec)}</span>` : ""}</p>
+    <div class="per"><div><b>${r0(p.madrugada)}%</b>madrugada</div><div><b>${r0(p.manha)}%</b>manhã</div><div><b>${r0(p.tarde)}%</b>tarde</div><div><b>${r0(p.noite)}%</b>noite</div></div>
+    <div class="grid">
+      <div><b>${x.chuva != null ? (x.chuva < 1 ? x.chuva.toFixed(1) : r0(x.chuva)) : "–"} mm</b><span>chuva${x.chuvaFaixa ? ` (${x.chuvaFaixa[0] ?? 0}–${r0(x.chuvaFaixa[1])})` : ""}</span></div>
+      <div><b>${x.prob10 != null ? r0(x.prob10) + "%" : "–"}</b><span>chance de 10 mm+</span></div>
+      <div><b>${r0(x.rajada)} km/h</b><span>rajadas</span></div>
+      <div><b>${x.urMin != null ? r0(x.urMin) + "%" : "–"}</b><span>umidade mínima</span></div>
+      <div><b>${x.uv != null ? r0(x.uv) : "–"}</b><span>UV máximo</span></div>
+      <div><b>${x.nascer || "–"}</b><span>sol nasce · ${x.por || "–"}</span></div>
+    </div>
+    <span class="conf"><i style="background:${corConf}"></i>Confiança ${x.confianca}${x.tmaxFaixa ? ` · máxima entre ${x.tmaxFaixa[0]}° e ${x.tmaxFaixa[1]}°` : ""}</span>
+    ${svg}
+    ${mods.length ? `<details style="margin-top:10px"><summary class="small">Comparar as ${mods.length} fontes deste dia</summary>
+      <table class="modelos"><thead><tr><th>Fonte</th><th>Máx</th><th>Mín</th><th>Chuva</th></tr></thead><tbody>
+      ${mods.map(([m, v]) => `<tr><td>${NOMES[m] || m}</td><td class="num">${v.tmax != null ? r0(v.tmax) + "°" : "–"}</td><td class="num">${v.tmin != null ? r0(v.tmin) + "°" : "–"}</td><td class="num">${v.chuva != null ? v.chuva + " mm" : "–"}</td></tr>`).join("")}
+      <tr class="media"><td>Radar (combinado)</td><td class="num">${r0(x.tmax)}°</td><td class="num">${r0(x.tmin)}°</td><td class="num">${x.chuva ?? "–"} mm</td></tr></tbody></table></details>` : ""}`;
+}
+
+// ---------- busca e locais
+function ehFav(){ return atual && store.get("favs", []).some(f => f.lat.toFixed(2) === atual.lat.toFixed(2) && f.lon.toFixed(2) === atual.lon.toFixed(2)); }
+function alternarFav(){
+  let fs = store.get("favs", []);
+  if (ehFav()) fs = fs.filter(f => !(f.lat.toFixed(2) === atual.lat.toFixed(2) && f.lon.toFixed(2) === atual.lon.toFixed(2)));
+  else fs.unshift({ nome: atual.nome, uf: atual.uf, lat: atual.lat, lon: atual.lon });
+  store.set("favs", fs.slice(0, 12)); render(); toast(ehFav() ? "Local salvo." : "Local removido.");
+}
+function listarFavs(){
+  const fs = store.get("favs", []);
+  $("favBox").hidden = !fs.length;
+  $("favoritos").innerHTML = fs.map((f, i) => `<li><button data-i="${i}"><span><b>${esc(f.nome)}</b>${f.uf ? `<small>${esc(f.uf)}</small>` : ""}</span><span class="x" data-del="${i}" aria-label="Remover">✕</span></button></li>`).join("");
+  $("favoritos").querySelectorAll("button").forEach(b => b.onclick = ev => {
+    const fs = store.get("favs", []);
+    if (ev.target.dataset.del != null) { fs.splice(+ev.target.dataset.del, 1); store.set("favs", fs); listarFavs(); return; }
+    escolher(fs[+b.dataset.i]);
+  });
+}
+function abrirBusca(){ listarFavs(); $("resultados").innerHTML = ""; $("dlgBusca").showModal(); setTimeout(() => $("q").focus(), 50); }
+function escolher(l){ $("dlgBusca").open && $("dlgBusca").close(); dados = null; carregar(l); }
+$("btnLocal").onclick = abrirBusca;
+$("fecharBusca").onclick = () => $("dlgBusca").close();
+$("dlgBusca").addEventListener("click", e => { if (e.target === $("dlgBusca")) $("dlgBusca").close(); });
+$("frmBusca").onsubmit = async e => {
+  e.preventDefault();
+  const q = $("q").value.trim(); if (q.length < 2) return;
+  $("resultados").innerHTML = `<li class="muted small">Procurando…</li>`;
+  try {
+    const { locais } = await chamar({ acao:"buscar", q }, 15000);
+    if (!locais.length) { $("resultados").innerHTML = `<li class="muted small">Nada encontrado. Tente o nome da cidade com a sigla do estado, como "Capelinha MG".</li>`; return; }
+    $("resultados").innerHTML = locais.map((l, i) => `<li><button data-i="${i}"><span><b>${esc(l.nome)}${l.uf ? " – " + esc(l.uf) : ""}</b><small>${esc([l.cep, l.detalhe].filter(Boolean).join(" · "))}</small></span><span>›</span></button></li>`).join("");
+    $("resultados").querySelectorAll("button").forEach(b => b.onclick = () => escolher(locais[+b.dataset.i]));
+  } catch (err) {
+    // reserva: busca de cidade direto no serviço público
+    try {
+      const j = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=pt&countryCode=BR`)).json();
+      const locais = (j.results || []).map(x => ({ nome: x.name, uf: "", lat: x.latitude, lon: x.longitude, detalhe: x.admin1 }));
+      $("resultados").innerHTML = locais.map((l, i) => `<li><button data-i="${i}"><span><b>${esc(l.nome)}</b><small>${esc(l.detalhe)}</small></span><span>›</span></button></li>`).join("") || `<li class="muted small">Nada encontrado.</li>`;
+      $("resultados").querySelectorAll("button").forEach(b => b.onclick = () => escolher(locais[+b.dataset.i]));
+    } catch (e2) { $("resultados").innerHTML = `<li class="muted small">Sem conexão para buscar agora.</li>`; }
+  }
+};
+$("btnGps").onclick = () => {
+  if (!navigator.geolocation) return toast("Este aparelho não informa a localização.");
+  $("btnGps").textContent = "📍 Localizando…";
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const lat = +pos.coords.latitude.toFixed(4), lon = +pos.coords.longitude.toFixed(4);
+    let l = { nome: "Minha localização", uf: "", lat, lon };
+    try { const r = await chamar({ acao:"reverso", lat, lon }, 10000); l = { ...l, nome: r.nome, uf: r.uf }; } catch (e) {}
+    $("btnGps").textContent = "📍 Usar minha localização"; escolher(l);
+  }, () => { $("btnGps").textContent = "📍 Usar minha localização"; toast("Não foi possível pegar a localização. Permita o acesso ou busque pelo nome."); }, { enableHighAccuracy:false, timeout:12000, maximumAge:600000 });
+};
+$("btnAtualizar").onclick = () => atual ? carregar(atual, true) : abrirBusca();
+
+async function compartilhar(){
+  const url = location.href, txt = `Previsão do tempo para ${atual.nome}: ${dados.resumo?.[0] || ""}`;
+  if (navigator.share) { try { await navigator.share({ title:"Radar do Clima", text: txt, url }); } catch (e) {} }
+  else { try { await navigator.clipboard.writeText(url); toast("Link copiado."); } catch (e) { prompt("Copie o link:", url); } }
+}
+
+// ---------- fontes e saúde
+$("lnkFontes").onclick = async e => {
+  e.preventDefault();
+  const box = $("fontesConteudo");
+  box.innerHTML = `<p>Carregando…</p>`; $("dlgFontes").showModal();
+  try {
+    const s = await chamar({ acao:"saude" }, 15000);
+    const est = f => f.falhas_seguidas >= 3 ? "falha" : f.falhas_seguidas > 0 ? "aten" : "ok";
+    const quando = t => t ? new Date(t).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" }) : "–";
+    const ps = (s.pesos || []).filter(p => p.variavel === "tmax");
+    const reg = ps.some(p => p.regiao !== "global" && p.amostras >= 10);
+    box.innerHTML = `<h2>Saúde do sistema</h2>
+      <p class="small muted">Cada consulta testa as fontes. Se uma falha, o Radar usa as outras e o robô de manutenção procura um substituto.</p>
+      <ul class="fontes">${(s.fontes || []).sort((a,b) => a.tipo.localeCompare(b.tipo)).map(f => `<li><span><span class="dot ${est(f)}"></span>${esc(f.nome)}</span><span class="small muted">${f.ultimo_ok ? "ok " + quando(f.ultimo_ok) : "sem uso ainda"}${f.falhas_seguidas ? ` · ${f.falhas_seguidas} falha(s)` : ""}</span></li>`).join("")}</ul>
+      <h2 style="margin-top:16px">Peso de cada modelo (máxima)</h2>
+      <p class="small muted">${reg ? "Pesos já ajustados pelo histórico de acertos." : "Pesos iniciais. O sistema compara todo dia o previsto com o que aconteceu e ajusta sozinho."}</p>
+      <ul class="fontes">${ps.filter(p => p.regiao === "global").map(p => `<li><span>${NOMES[p.modelo] || p.modelo}</span><span class="num">${(p.peso*100).toFixed(0)}%${p.erro_medio != null ? ` · erro ${p.erro_medio.toFixed(1)}°` : ""}</span></li>`).join("")}</ul>
+      ${(s.manutencao || []).length ? `<h2 style="margin-top:16px">Diário de manutenção</h2><ul class="fontes">${s.manutencao.map(m => `<li><span>${esc(m.resumo)}</span><span class="small muted">${quando(m.quando)}</span></li>`).join("")}</ul>` : ""}
+      <div style="text-align:right;margin-top:12px"><button class="btn sec" onclick="document.getElementById('dlgFontes').close()">Fechar</button></div>`;
+  } catch (err) { box.innerHTML = `<p>Não foi possível ler agora.</p><button class="btn sec" onclick="document.getElementById('dlgFontes').close()">Fechar</button>`; }
+};
+$("lnkTema").onclick = e => {
+  e.preventDefault();
+  const atualT = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const novo = atualT === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = novo; store.set("tema", novo);
+};
+{ const t = store.get("tema"); if (t) document.documentElement.dataset.theme = t; }
+
+// ---------- notificações
+const PREFS = [["resumo","Resumo às 6h"],["chuva","Chuva forte e temporal"],["chegando","Chuva chegando"],["inmet","Alertas do INMET"],["frio","Frio e geada"],["calor","Calor e ar seco"],["vento","Ventania"]];
+function b64(s){ const p = "=".repeat((4 - s.length % 4) % 4); const r = atob((s + p).replace(/-/g,"+").replace(/_/g,"/")); return Uint8Array.from([...r].map(c => c.charCodeAt(0))); }
+async function inscricao(){ if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null; const reg = await navigator.serviceWorker.ready; return reg.pushManager.getSubscription(); }
+async function rpc(fn, body){
+  const r = await fetch(CONFIG.rest + fn, { method:"POST", headers:{ apikey:CONFIG.anon, Authorization:"Bearer " + CONFIG.anon, "Content-Type":"application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(await r.text());
+}
+async function renderAvisos(){
+  const el = $("avisosCorpo"); if (!el) return;
+  const suporta = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent), standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  if (!suporta) { el.innerHTML = ios && !standalone ? `<p class="small">No iPhone, os avisos funcionam com o app na Tela de Início: toque em <b>Compartilhar</b> → <b>Adicionar à Tela de Início</b> e abra por lá.</p>` : `<p class="small muted">Este navegador não aceita avisos. No Android use o Chrome.</p>`; return; }
+  const sub = await inscricao().catch(() => null);
+  const prefs = store.get("prefs", {});
+  const local = store.get("localAvisos");
+  el.innerHTML = sub ? `
+    <p class="small" style="margin:0 0 6px">Avisos ligados para <b>${esc(local?.nome || "seu local")}</b>. Chegam mesmo com o app fechado.</p>
+    <div class="prefs">${PREFS.map(([k, t]) => `<label><input type="checkbox" data-p="${k}" ${prefs[k] !== false ? "checked" : ""}>${t}</label>`).join("")}</div>
+    <div class="btns">${local && atual && local.lat.toFixed(2) !== atual.lat.toFixed(2) ? `<button class="btn" id="nTrocar">Avisar sobre ${esc(atual.nome)}</button>` : ""}<button class="btn sec" id="nTeste">Enviar teste</button><button class="btn sec" id="nDesligar">Desligar</button></div>`
+  : `<p class="small" style="margin:0 0 10px">Receba alerta de temporal, chuva chegando, geada, calor e o resumo do dia às 6h para <b>${esc(atual?.nome || "este local")}</b>.</p><button class="btn" id="nLigar">🔔 Ligar avisos</button>`;
+  const salvar = async () => {
+    const s = await inscricao(); if (!s) return;
+    const j = s.toJSON(), l = store.get("localAvisos") || atual;
+    await rpc("salvar_inscricao", { p_endpoint:j.endpoint, p_p256dh:j.keys.p256dh, p_auth:j.keys.auth, p_lat:l.lat, p_lon:l.lon, p_nome:l.nome, p_prefs:{ ...store.get("prefs", {}), uf:l.uf || "" } });
+  };
+  el.querySelectorAll("[data-p]").forEach(c => c.onchange = async () => { const p = store.get("prefs", {}); p[c.dataset.p] = c.checked; store.set("prefs", p); try { await salvar(); toast("Preferências salvas."); } catch (e) { toast("Não salvou. Tente de novo."); } });
+  if ($("nLigar")) $("nLigar").onclick = async () => {
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") return toast("Permissão negada. Libere as notificações nas configurações do navegador.");
+      const reg = await navigator.serviceWorker.ready;
+      await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:b64(CONFIG.vapid) });
+      store.set("localAvisos", { nome: atual.nome, uf: atual.uf, lat: atual.lat, lon: atual.lon });
+      await salvar(); toast("Avisos ligados!"); renderAvisos();
+    } catch (e) { toast("Não foi possível ligar: " + e.message); }
+  };
+  if ($("nTrocar")) $("nTrocar").onclick = async () => { store.set("localAvisos", { nome: atual.nome, uf: atual.uf, lat: atual.lat, lon: atual.lon }); try { await salvar(); toast("Avisos agora para " + atual.nome + "."); } catch (e) { toast("Não salvou."); } renderAvisos(); };
+  if ($("nTeste")) $("nTeste").onclick = async () => { const s = await inscricao(); try { const r = await chamar({ acao:"teste_aviso", endpoint:s.endpoint }, 20000); toast(r.ok ? "Teste enviado. Deve chegar em segundos." : "Falhou: " + (r.erro || "")); } catch (e) { toast("Falhou: " + e.message); } };
+  if ($("nDesligar")) $("nDesligar").onclick = async () => { const s = await inscricao(); if (s) { await rpc("remover_inscricao", { p_endpoint:s.endpoint }).catch(() => {}); await s.unsubscribe(); } store.set("localAvisos", null); toast("Avisos desligados."); renderAvisos(); };
+}
+
+// ---------- app instalável
+let instalarEvt = null;
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); instalarEvt = e; const b = $("btnInstalar"); if (b) { b.hidden = false; b.onclick = instalar; } });
+async function instalar(){ if (!instalarEvt) return; instalarEvt.prompt(); await instalarEvt.userChoice; instalarEvt = null; $("btnInstalar").hidden = true; }
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+
+// ---------- início
+(function iniciar(){
+  const u = new URLSearchParams(location.search);
+  if (u.get("lat") && u.get("lon")) return carregar({ nome: u.get("n") || "Local", uf: u.get("uf") || "", lat: +u.get("lat"), lon: +u.get("lon") });
+  const ult = store.get("ultimo");
+  if (ult) return carregar(ult);
+  $("app").innerHTML = `<div class="card vazio">${icone("sol-nuvem")}<h1>Qual é a sua cidade?</h1>
+    <p class="muted">Digite o CEP ou o nome da cidade, ou use a localização do celular.</p>
+    <div class="btns" style="justify-content:center;margin-top:14px"><button class="btn" onclick="abrirBusca()">Buscar cidade ou CEP</button><button class="btn sec" onclick="abrirBusca();setTimeout(()=>document.getElementById('btnGps').click(),100)">📍 Minha localização</button></div></div>`;
+})();
+// atualiza sozinho ao voltar para o app depois de 20 minutos
+document.addEventListener("visibilitychange", () => { if (!document.hidden && atual && dados && Date.now() - Date.parse(dados.gerado) > 20 * 60000) carregar(atual); });
+</script>
+</body>
+</html>
