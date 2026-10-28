@@ -198,7 +198,7 @@ footer a{color:inherit}
 </main>
 <footer>
   Radar do Clima · Talles Eugenio · dados de vários centros meteorológicos e alertas oficiais do INMET<br>
-  <a href="#" id="lnkFontes">Fontes e saúde do sistema</a> · <a href="#" id="lnkTema">Tema</a>
+  <a href="#" id="lnkFontes">Fontes e saúde do sistema</a> · <a href="#" id="lnkTema">Tema</a> · versão 4
 </footer>
 </div>
 
@@ -572,7 +572,17 @@ async function renderAvisos(){
 let instalarEvt = null;
 addEventListener("beforeinstallprompt", e => { e.preventDefault(); instalarEvt = e; const b = $("btnInstalar"); if (b) { b.hidden = false; b.onclick = instalar; } });
 async function instalar(){ if (!instalarEvt) return; instalarEvt.prompt(); await instalarEvt.userChoice; instalarEvt = null; $("btnInstalar").hidden = true; }
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").then(r => r.update()).catch(() => {});
+// atualização automática: se saiu versão nova do app, recarrega sozinho (uma vez)
+const APP_VERSAO = "4";
+async function conferirVersao(){
+  try {
+    const v = (await (await fetch("versao.json?t=" + Date.now(), { cache:"no-store" })).json()).v;
+    if (v && v !== APP_VERSAO && store.get("recarregou") !== v) { store.set("recarregou", v); location.reload(); }
+  } catch (e) {}
+}
+conferirVersao();
+document.addEventListener("visibilitychange", () => { if (!document.hidden) conferirVersao(); });
 
 // ---------- início
 (function iniciar(){
