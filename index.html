@@ -61,7 +61,7 @@ h2{font-family:var(--display);font-weight:700;font-size:1.05rem;margin:0 0 10px;
 .hero .desc{font-size:1.05rem;font-weight:500;margin-top:4px}
 .hero .mm{opacity:.9;margin-top:2px}
 .hero .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:14px;border-top:1px solid rgba(255,255,255,.2);padding-top:12px}
-.hero .stats div{text-align:center}
+.hero .stats div{text-align:center;line-height:1.25}
 .hero .stats b{display:block;font-family:var(--mono);font-weight:500;font-size:.95rem}
 .hero .stats span{font-size:.7rem;opacity:.8}
 .hero .when{font-size:.75rem;opacity:.8;margin-top:10px;display:flex;justify-content:space-between;gap:8px}
@@ -111,9 +111,9 @@ h2{font-family:var(--display);font-weight:700;font-size:1.05rem;margin:0 0 10px;
 .dia .nome span{font-size:.72rem;color:var(--muted)}
 .dia svg.wi{width:34px;height:34px}
 .dia .prob{text-align:center;line-height:1.15}
-.dia .prob b{display:block;font-family:var(--mono);font-weight:600;font-size:.88rem;color:var(--muted)}
+.dia .prob b{display:block;font-weight:600;font-size:.95rem;color:var(--muted)}
 .dia .prob b.molha{color:var(--rain)}
-.dia .prob small{display:block;color:var(--muted);font-size:.68rem}
+.dia .prob small{display:block;color:var(--muted);font-size:.68rem;font-family:var(--mono)}
 .dia .prob small.alta{color:var(--rain);font-weight:600}
 .mm-legenda{font-size:.72rem;color:var(--muted);margin:-4px 0 4px}
 .faixa{display:grid;grid-template-columns:32px 1fr 32px;align-items:center;gap:6px;font-family:var(--mono);font-size:.9rem}
@@ -198,7 +198,7 @@ footer a{color:inherit}
 </main>
 <footer>
   Radar do Clima · Talles Eugenio · dados de vários centros meteorológicos e alertas oficiais do INMET<br>
-  <a href="#" id="lnkFontes">Fontes e saúde do sistema</a> · <a href="#" id="lnkTema">Tema</a> · versão 5
+  <a href="#" id="lnkFontes">Fontes e saúde do sistema</a> · <a href="#" id="lnkTema">Tema</a> · versão 6
 </footer>
 </div>
 
@@ -324,7 +324,7 @@ function render(){
       <div class="mm">Máx <b>${r0(h0.tmax)}°</b> · Mín <b>${r0(h0.tmin)}°</b>${a.sens != null ? ` · Sensação ${r0(a.sens)}°` : ""}</div>
     </div>${icone(a.icone || h0.icone)}</div>
     <div class="stats">
-      <div><b>${fmtMm(h0.chuva)}</b><span>chuva (${r0(h0.prob)}%)</span></div>
+      <div><b>${r0(h0.prob)}%</b><span>chuva hoje<br>${fmtMm(h0.chuva)}</span></div>
       <div><b>${a.ur != null ? r0(a.ur) + "%" : "–"}</b><span>umidade</span></div>
       <div><b>${r0(a.vento)}</b><span>vento km/h</span></div>
       <div><b>${h0.uv != null ? r0(h0.uv) : "–"}</b><span>índice UV</span></div>
@@ -357,12 +357,12 @@ function render(){
   // dias
   if (d.dias?.length){
     const tmin = Math.min(...d.dias.map(x => x.tmin ?? 99)), tmax = Math.max(...d.dias.map(x => x.tmax ?? -99)), amp = Math.max(1, tmax - tmin);
-    html += `<section class="card"><h2>Hoje e próximos dias</h2><p class="mm-legenda">Chuva prevista em milímetros e chance de chover · semana: <b>${fmtMm(d.dias.reduce((a, x) => a + (x.chuva || 0), 0))}</b></p><div class="dias">${d.dias.map((x, i) => {
+    html += `<section class="card"><h2>Hoje e próximos dias</h2><p class="mm-legenda">Chance de chuva e milímetros previstos · semana: <b>${fmtMm(d.dias.reduce((a, x) => a + (x.chuva || 0), 0))}</b></p><div class="dias">${d.dias.map((x, i) => {
       const nome = i === 0 ? "Hoje" : i === 1 ? "Amanhã" : x.semana;
       const esq = ((x.tmin - tmin) / amp) * 100, larg = Math.max(6, ((x.tmax - x.tmin) / amp) * 100);
       return `<div class="dia" data-i="${i}"><button aria-expanded="false">
         <div class="nome"><b>${nome}</b><span>${dataCurta(x.data)}</span></div>${icone(x.icone)}
-        <div class="prob"><b class="${x.chuva >= 1 ? "molha" : ""}">${fmtMm(x.chuva)}</b><small class="${x.prob >= 50 ? "alta" : ""}">${r0(x.prob)}%</small></div>
+        <div class="prob"><b class="${x.prob >= 30 ? "molha" : ""}">${r0(x.prob)}%</b><small class="${x.chuva >= 1 ? "alta" : ""}">${fmtMm(x.chuva)}</small></div>
         <div class="faixa"><span class="mn">${r0(x.tmin)}°</span><span class="trilho"><i style="left:${esq}%;width:${Math.min(larg, 100 - esq)}%"></i></span><span>${r0(x.tmax)}°</span></div>
       </button><div class="det"></div></div>`; }).join("")}</div></section>`;
   }
@@ -574,7 +574,7 @@ addEventListener("beforeinstallprompt", e => { e.preventDefault(); instalarEvt =
 async function instalar(){ if (!instalarEvt) return; instalarEvt.prompt(); await instalarEvt.userChoice; instalarEvt = null; $("btnInstalar").hidden = true; }
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").then(r => r.update()).catch(() => {});
 // atualização automática: se saiu versão nova do app, recarrega sozinho (uma vez)
-const APP_VERSAO = "5";
+const APP_VERSAO = "6";
 async function conferirVersao(){
   try {
     const v = (await (await fetch("versao.json?t=" + Date.now(), { cache:"no-store" })).json()).v;
