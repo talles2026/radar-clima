@@ -106,12 +106,16 @@ h2{font-family:var(--display);font-weight:700;font-size:1.05rem;margin:0 0 10px;
 .dias{display:grid}
 .dia{border-top:1px solid var(--line)}
 .dia:first-child{border-top:0}
-.dia>button{width:100%;background:none;border:0;padding:10px 0;display:grid;grid-template-columns:76px 34px 46px 1fr;align-items:center;gap:8px;text-align:left}
+.dia>button{width:100%;background:none;border:0;padding:10px 0;display:grid;grid-template-columns:70px 34px 62px 1fr;align-items:center;gap:8px;text-align:left}
 .dia .nome b{display:block;font-weight:600;text-transform:capitalize}
 .dia .nome span{font-size:.72rem;color:var(--muted)}
 .dia svg.wi{width:34px;height:34px}
-.dia .prob{font-size:.8rem;color:var(--rain);font-weight:600;text-align:center;line-height:1.1}
-.dia .prob small{display:block;font-weight:400;color:var(--muted);font-size:.68rem;font-family:var(--mono)}
+.dia .prob{text-align:center;line-height:1.15}
+.dia .prob b{display:block;font-family:var(--mono);font-weight:600;font-size:.88rem;color:var(--muted)}
+.dia .prob b.molha{color:var(--rain)}
+.dia .prob small{display:block;color:var(--muted);font-size:.68rem}
+.dia .prob small.alta{color:var(--rain);font-weight:600}
+.mm-legenda{font-size:.72rem;color:var(--muted);margin:-4px 0 4px}
 .faixa{display:grid;grid-template-columns:32px 1fr 32px;align-items:center;gap:6px;font-family:var(--mono);font-size:.9rem}
 .faixa .mn{color:var(--muted);text-align:right}
 .faixa .trilho{position:relative;height:6px;border-radius:6px;background:var(--line)}
@@ -253,6 +257,7 @@ function icone(nome){
 // ---------- estado
 let atual = null, dados = null;
 const SEM = ["dom","seg","ter","qua","qui","sex","sáb"];
+const fmtMm = v => v == null ? "–" : (v < 0.1 ? "0 mm" : v < 10 ? v.toFixed(1).replace(".", ",") + " mm" : Math.round(v) + " mm");
 const dataCurta = iso => { const [y,m,d] = iso.split("-"); return `${d}/${m}`; };
 
 // ---------- chamadas
@@ -352,12 +357,12 @@ function render(){
   // dias
   if (d.dias?.length){
     const tmin = Math.min(...d.dias.map(x => x.tmin ?? 99)), tmax = Math.max(...d.dias.map(x => x.tmax ?? -99)), amp = Math.max(1, tmax - tmin);
-    html += `<section class="card"><h2>Hoje e próximos dias</h2><div class="dias">${d.dias.map((x, i) => {
+    html += `<section class="card"><h2>Hoje e próximos dias</h2><p class="mm-legenda">Chuva prevista em milímetros e chance de chover · semana: <b>${fmtMm(d.dias.reduce((a, x) => a + (x.chuva || 0), 0))}</b></p><div class="dias">${d.dias.map((x, i) => {
       const nome = i === 0 ? "Hoje" : i === 1 ? "Amanhã" : x.semana;
       const esq = ((x.tmin - tmin) / amp) * 100, larg = Math.max(6, ((x.tmax - x.tmin) / amp) * 100);
       return `<div class="dia" data-i="${i}"><button aria-expanded="false">
         <div class="nome"><b>${nome}</b><span>${dataCurta(x.data)}</span></div>${icone(x.icone)}
-        <div class="prob">${x.prob >= 10 ? r0(x.prob) + "%" : ""}<small>${x.chuva >= 1 ? r0(x.chuva) + " mm" : ""}</small></div>
+        <div class="prob"><b class="${x.chuva >= 1 ? "molha" : ""}">${fmtMm(x.chuva)}</b><small class="${x.prob >= 50 ? "alta" : ""}">${r0(x.prob)}%</small></div>
         <div class="faixa"><span class="mn">${r0(x.tmin)}°</span><span class="trilho"><i style="left:${esq}%;width:${Math.min(larg, 100 - esq)}%"></i></span><span>${r0(x.tmax)}°</span></div>
       </button><div class="det"></div></div>`; }).join("")}</div></section>`;
   }
