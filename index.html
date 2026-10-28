@@ -387,12 +387,11 @@ function render(){
   html += `<section class="card"><h2>De onde vem esta previsão</h2>
     <p class="small" style="margin:0 0 8px">Juntamos <b>${(f.usadas||[]).length} fontes</b> e damos mais peso às que acertam mais${f.pesosAprendidos ? " <b>nesta região</b>" : ""}. A chance de chuva vem de ${f.ensemble?.length ? f.ensemble.join(", ") : "modelos de previsão"}: são cenários diferentes rodados pelos centros meteorológicos, e a porcentagem é quantos deles mostram chuva.</p>
     <div class="chips">${(f.usadas||[]).map(u => `<span class="chip">${esc(u)}</span>`).join("")}</div>
-    <div class="btns" style="margin-top:12px"><button class="btn sec" id="btnCompartilhar">Compartilhar</button><button class="btn sec" id="btnFav">${ehFav() ? "★ Nos meus locais" : "☆ Salvar local"}</button><button class="btn sec" id="btnInstalar" hidden>Instalar app</button></div>
+    <div class="btns" style="margin-top:12px"><button class="btn sec" id="btnFav">${ehFav() ? "★ Nos meus locais" : "☆ Salvar local"}</button><button class="btn sec" id="btnInstalar" hidden>Instalar app</button></div>
   </section>`;
 
   $("app").innerHTML = html;
   document.querySelectorAll(".dia>button").forEach(b => b.onclick = () => abrirDia(b.parentElement));
-  $("btnCompartilhar").onclick = compartilhar;
   $("btnFav").onclick = alternarFav;
   if (instalarEvt) { $("btnInstalar").hidden = false; $("btnInstalar").onclick = instalar; }
   renderAvisos();
@@ -491,12 +490,6 @@ $("btnGps").onclick = () => {
 };
 $("btnAtualizar").onclick = () => atual ? carregar(atual, true) : abrirBusca();
 
-async function compartilhar(){
-  const url = location.href, txt = `Previsão do tempo para ${atual.nome}: ${dados.resumo?.[0] || ""}`;
-  if (navigator.share) { try { await navigator.share({ title:"Radar do Clima", text: txt, url }); } catch (e) {} }
-  else { try { await navigator.clipboard.writeText(url); toast("Link copiado."); } catch (e) { prompt("Copie o link:", url); } }
-}
-
 // ---------- fontes e saúde
 $("lnkFontes").onclick = async e => {
   e.preventDefault();
@@ -574,7 +567,7 @@ addEventListener("beforeinstallprompt", e => { e.preventDefault(); instalarEvt =
 async function instalar(){ if (!instalarEvt) return; instalarEvt.prompt(); await instalarEvt.userChoice; instalarEvt = null; $("btnInstalar").hidden = true; }
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").then(r => r.update()).catch(() => {});
 // atualização automática: se saiu versão nova do app, recarrega sozinho (uma vez)
-const APP_VERSAO = "8";
+const APP_VERSAO = "9";
 async function conferirVersao(){
   try {
     const v = (await (await fetch("versao.json?t=" + Date.now(), { cache:"no-store" })).json()).v;

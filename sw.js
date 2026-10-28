@@ -1,5 +1,5 @@
 // Radar do Clima: dados sempre da rede quando houver sinal; sem sinal, mostra a última versão salva.
-const CACHE = "radar-clima-v8";
+const CACHE = "radar-clima-v9";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
