@@ -1,0 +1,111 @@
+{
+ "versao": 1,
+ "nota": "Configuração inicial das fontes.",
+ "fontes": [
+  {
+   "id": "openmeteo",
+   "nome": "Open-Meteo (9 modelos globais)",
+   "tipo": "previsao",
+   "config": {
+    "url": "https://api.open-meteo.com/v1/forecast",
+    "modelos": [
+     "ecmwf_ifs025",
+     "ecmwf_aifs025_single",
+     "icon_seamless",
+     "ukmo_seamless",
+     "meteofrance_seamless",
+     "gfs_seamless",
+     "gem_seamless",
+     "jma_seamless",
+     "cma_grapes_global"
+    ]
+   }
+  },
+  {
+   "id": "openmeteo_ens",
+   "nome": "Open-Meteo Ensemble (probabilidade de chuva)",
+   "tipo": "ensemble",
+   "config": {
+    "url": "https://ensemble-api.open-meteo.com/v1/ensemble",
+    "modelos": [
+     "ecmwf_ifs025",
+     "gfs025",
+     "icon_seamless_eps"
+    ]
+   }
+  },
+  {
+   "id": "metno",
+   "nome": "MET Norway",
+   "tipo": "previsao",
+   "config": {
+    "url": "https://api.met.no/weatherapi/locationforecast/2.0/compact"
+   }
+  },
+  {
+   "id": "cptec",
+   "nome": "CPTEC/INPE",
+   "tipo": "previsao",
+   "config": {
+    "lista": "http://servicos.cptec.inpe.br/XML/listaCidades?city=",
+    "previsao": "http://servicos.cptec.inpe.br/XML/cidade/7dias/{id}/previsao.xml"
+   }
+  },
+  {
+   "id": "inmet",
+   "nome": "INMET – Alertas oficiais",
+   "tipo": "alerta",
+   "config": {
+    "url": "https://apiprevmet3.inmet.gov.br/avisos/ativos"
+   }
+  },
+  {
+   "id": "brasilapi",
+   "nome": "BrasilAPI (CEP)",
+   "tipo": "geocodigo",
+   "config": {
+    "url": "https://brasilapi.com.br/api/cep/v2/{cep}"
+   }
+  },
+  {
+   "id": "awesomeapi",
+   "nome": "AwesomeAPI (CEP)",
+   "tipo": "geocodigo",
+   "config": {
+    "url": "https://cep.awesomeapi.com.br/json/{cep}"
+   }
+  },
+  {
+   "id": "viacep",
+   "nome": "ViaCEP",
+   "tipo": "geocodigo",
+   "config": {
+    "url": "https://viacep.com.br/ws/{cep}/json/"
+   }
+  },
+  {
+   "id": "om_geo",
+   "nome": "Open-Meteo Geocoding",
+   "tipo": "geocodigo",
+   "config": {
+    "url": "https://geocoding-api.open-meteo.com/v1/search"
+   }
+  },
+  {
+   "id": "nominatim",
+   "nome": "OpenStreetMap Nominatim",
+   "tipo": "geocodigo",
+   "config": {
+    "url": "https://nominatim.openstreetmap.org"
+   }
+  },
+  {
+   "id": "om_arquivo",
+   "nome": "Open-Meteo Arquivo (verificação)",
+   "tipo": "verificacao",
+   "config": {
+    "url": "https://archive-api.open-meteo.com/v1/archive"
+   }
+  }
+ ]
+}

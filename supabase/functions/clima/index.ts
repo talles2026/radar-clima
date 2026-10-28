@@ -14,7 +14,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-cron",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
-const VERSAO = "2026.10.28-2";
+const VERSAO = "2026.10.28-3";
 const CACHE_MIN = 20;
 
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
@@ -41,7 +41,27 @@ async function fontes() {
   if (Date.now() - fontesEm < 5 * 60e3 && Object.keys(FONTES).length) return FONTES;
   const { data } = await db.from("fontes").select("id,ativo,config");
   if (data?.length) { FONTES = Object.fromEntries(data.map((f: J) => [f.id, f])); fontesEm = Date.now(); }
+  if (Date.now() - syncEm > 30 * 60e3) { syncEm = Date.now(); sincronizarConfig().catch(() => {}); }
   return FONTES;
+}
+// Configuração das fontes publicada no GitHub (o robô de manutenção edita config/fontes.json
+// para trocar endereços ou desligar uma fonte, sem precisar reimplantar esta função).
+let syncEm = 0;
+const CONFIG_URL = "https://raw.githubusercontent.com/talles2026/radar-clima/main/config/fontes.json";
+async function sincronizarConfig() {
+  const r = await fetch(CONFIG_URL + "?t=" + Date.now(), { signal: AbortSignal.timeout(6000) });
+  if (!r.ok) return { ok: false, erro: `HTTP ${r.status}` };
+  const j = await r.json();
+  const { data: v } = await db.from("estado").select("valor").eq("chave", "config_versao").maybeSingle();
+  if (!j?.versao || !Array.isArray(j.fontes) || +j.versao <= +(v?.valor ?? 0)) return { ok: true, mudou: false };
+  const linhas = j.fontes.filter((f: J) => f?.id && f?.config && typeof f.config === "object")
+    .map((f: J) => ({ id: String(f.id), nome: String(f.nome || f.id), tipo: String(f.tipo || "previsao"), ativo: f.ativo !== false, config: f.config, atualizado: new Date().toISOString() }));
+  if (!linhas.length) return { ok: false, erro: "arquivo sem fontes" };
+  await db.from("fontes").upsert(linhas);
+  await db.from("estado").upsert({ chave: "config_versao", valor: String(j.versao) });
+  await db.from("manutencao").insert({ quem: "configuração", resumo: j.nota ? String(j.nota).slice(0, 300) : `Configuração das fontes atualizada (versão ${j.versao}).` });
+  fontesEm = 0;
+  return { ok: true, mudou: true, versao: j.versao };
 }
 const cfg = (id: string) => FONTES[id]?.config ?? {};
 const ativa = (id: string) => FONTES[id] ? FONTES[id].ativo !== false : true;
@@ -588,7 +608,9 @@ async function verificar() {
   const { data: locais } = await db.from("locais").select("chave,nome,uf,lat,lon").order("consultas", { ascending: false }).limit(40);
   const log: string[] = [];
   const ontem = new Date(Date.now() - 3 * 3600e3 - 86400e3).toISOString().slice(0, 10);
+  const t0 = Date.now();
   for (const l of locais ?? []) {
+    if (Date.now() - t0 > 110e3) { log.push("tempo esgotado: o restante fica para amanhã"); break; }
     try {
       const om = await openMeteo(l.lat, l.lon);
       const mn = await metno(l.lat, l.lon, om.off);
@@ -604,6 +626,27 @@ async function verificar() {
         if (mn?.[d]) linhas.push({ local: l.chave, data_alvo: d, antecedencia: i, modelo: "metno", tmax: mn[d].tmax, tmin: mn[d].tmin, chuva: mn[d].chuva });
       });
       if (linhas.length) await db.from("previsoes_modelo").upsert(linhas);
+      // primeira vez neste local: usa as previsões antigas de cada modelo (arquivo do Open-Meteo)
+      // dos últimos 60 dias para já começar com pesos ajustados à região
+      const { data: boot } = await db.from("estado").select("valor").eq("chave", "boot:" + l.chave).maybeSingle();
+      if (!boot) {
+        const mods = Object.keys(om.dm).filter(m => m !== "best_match");
+        const fim = ontem, ini60 = new Date(Date.parse(ontem) - 60 * 86400e3).toISOString().slice(0, 10);
+        const hist = await pegarValido("om_arquivo", () => pegar("om_arquivo", `https://historical-forecast-api.open-meteo.com/v1/forecast?latitude=${l.lat}&longitude=${l.lon}&start_date=${ini60}&end_date=${fim}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&models=${mods.join(",")}&timezone=auto`, "json", 20000),
+          (j: J) => Array.isArray(j?.daily?.time));
+        if (hist) {
+          const dmH = porModelo(hist.daily, ["temperature_2m_max", "temperature_2m_min", "precipitation_sum"], mods);
+          const hl: J[] = [];
+          hist.daily.time.forEach((d: string, i: number) => { for (const m of Object.keys(dmH)) { const x = dmH[m]; if (x.temperature_2m_max?.[i] == null) continue;
+            hl.push({ local: l.chave, data_alvo: d, antecedencia: 1, modelo: m, tmax: x.temperature_2m_max[i], tmin: x.temperature_2m_min?.[i], chuva: x.precipitation_sum?.[i] }); } });
+          for (let i = 0; i < hl.length; i += 500) await db.from("previsoes_modelo").upsert(hl.slice(i, i + 500), { ignoreDuplicates: true });
+          const obA = await pegarValido("om_arquivo", () => pegar("om_arquivo", `${cfg("om_arquivo").url || "https://archive-api.open-meteo.com/v1/archive"}?latitude=${l.lat}&longitude=${l.lon}&start_date=${ini60}&end_date=${fim}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto`, "json", 20000),
+            (j: J) => Array.isArray(j?.daily?.time));
+          if (obA) await db.from("observado").upsert(obA.daily.time.map((d: string, i: number) => ({ local: l.chave, data: d, tmax: obA.daily.temperature_2m_max[i], tmin: obA.daily.temperature_2m_min[i], chuva: obA.daily.precipitation_sum[i], fonte: "era5" })).filter((o: J) => o.tmax != null));
+          await db.from("estado").upsert({ chave: "boot:" + l.chave, valor: String(hl.length) });
+          log.push(`${l.nome}: histórico de ${hl.length} previsões antigas para calibrar`);
+        }
+      }
       // observado (reanálise ERA5 do Open-Meteo, disponível com 1 a 5 dias de atraso)
       const ini = new Date(Date.parse(ontem) - 6 * 86400e3).toISOString().slice(0, 10);
       const arq = cfg("om_arquivo").url || "https://archive-api.open-meteo.com/v1/archive";
@@ -631,6 +674,7 @@ const GRUPOS: string[][] = [
 ];
 async function modelos() {
   await fontes();
+  const sync = await sincronizarConfig().catch((e) => ({ ok: false, erro: String(e) }));
   const c = cfg("openmeteo");
   const url = c.url || "https://api.open-meteo.com/v1/forecast";
   const todos = [...new Set(GRUPOS.flat())];
@@ -640,7 +684,7 @@ async function modelos() {
     try {
       const r = await fetch(`${url}?latitude=-19.9&longitude=-43.9&daily=temperature_2m_max&forecast_days=7&models=${lote.join(",")}`, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(10000) });
       const j = await r.json();
-      for (const m of lote) { const a = j?.daily?.[`temperature_2m_max_${m}`]; resposta[m] = Array.isArray(a) && a.filter((x: any) => x != null).length >= 5; }
+      for (const m of lote) { const a = j?.daily?.[`temperature_2m_max_${m}`]; resposta[m] = Array.isArray(a) && a.filter((x: any) => x != null).length >= 3; }
     } catch (_) { for (const m of lote) resposta[m] ??= false; }
   }
   if (!Object.values(resposta).some(Boolean)) return { erro: "Open-Meteo não respondeu; nada alterado", resposta };
@@ -659,7 +703,7 @@ async function modelos() {
     }
     await db.from("manutencao").insert({ quem: "robô de modelos", resumo: `Modelos atualizados automaticamente: ${antes.join(", ")} → ${escolhidos.join(", ")}` });
   }
-  return { mudou, antes, escolhidos, resposta };
+  return { mudou, antes, escolhidos, resposta, sync };
 }
 
 // Notificações no celular
